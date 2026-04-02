@@ -1,3 +1,12 @@
-google-adk
-python-dotenv
-certifi
+google-adk>=1.20.0
+mcp>=1.0.0
+python-dotenv>=1.0.0
+# OpenAI / OpenAI-compatible APIs via ADK LiteLlm (avoid compromised 1.82.7–1.82.8)
+litellm>=1.83.0
+
+# --- Wiz security CLI (wizcli) — not a pip package ---
+# The official Wiz.io scanner is a standalone binary (not on PyPI). Do NOT `pip install wizcli`:
+# that package on PyPI is unrelated (smart-bulb tooling).
+# Install separately, then ensure `wizcli` is on PATH when you run `adk web`, e.g. macOS:
+#   brew install --cask wizcli
+# Docs: https://docs.wiz.io/wiz-cli/
