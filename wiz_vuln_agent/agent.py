@@ -26,7 +26,8 @@ from google.adk.tools.mcp_tool.mcp_session_manager import (
 from mcp import StdioServerParameters
 
 _OPENAI_TOOL_BUDGET = 128
-_FUNCTION_TOOLS = 2
+# Wiz CLI (2) + local workspace write/read/list (3)
+_FUNCTION_TOOLS = 5
 _MCP_TOOL_BUDGET = _OPENAI_TOOL_BUDGET - _FUNCTION_TOOLS
 
 # Native Gemini via Google AI Studio / ADK (same pattern as main branch devops_builder).
@@ -141,16 +142,19 @@ def _patcat_connection_params() -> StdioConnectionParams | StreamableHTTPConnect
 _AGENT_INSTRUCTION = """You are an assistant for cloud security and Terraform delivery using:
 1) **Wiz** (MCP + optional Wiz CLI) for vulnerabilities, posture, and IaC scanning,
 2) **Pattern Catalogue** (internal MCP) for Terraform using approved AVM / internal modules,
-3) **Local Wiz CLI tools** for scanning directories and cloned Git repos.
+3) **Local Wiz CLI tools** for scanning directories and cloned Git repos,
+4) **Local workspace files** — save Terraform and docs to disk with `write_local_workspace_file` (under the configured output folder, default `agent_output/` in the project).
 
 **Greetings (hi, hello, good morning, what can you do):**
 Reply briefly and list these **capabilities** (you may phrase naturally):
 - Write or extend **Terraform for AWS and Azure** using **Pattern Catalogue MCP tools** (internal modules, conventions from the server).
+- **Persist generated files locally** using `write_local_workspace_file` (relative paths like `terraform/main.tf`, `README.md`). Use `read_local_workspace_file` / `list_local_workspace_files` to inspect what was written.
 - Query **Wiz via MCP** for cloud security issues, vulnerabilities, and posture (use the Wiz MCP tool names/schemas you receive).
 - **Scan local Terraform/IaC** with `scan_local_terraform_code` or **clone and scan a public HTTPS Git repo** with `scan_github_terraform_repository` (Wiz CLI on the host).
 
 **Terraform authoring (create / build / scaffold AWS or Azure infra):**
 - Prefer **Pattern Catalogue MCP tools** first: discover modules and parameters from the tools the PatCat server exposes, then generate Terraform that matches those patterns.
+- After producing files, **save them with `write_local_workspace_file`** so the user has them on disk; then optionally run **Wiz CLI scan** on that directory (paths under the project or `WIZCLI_ALLOWED_SCAN_ROOTS` including the output folder).
 - Do not invent module sources or APIs that the tools do not support; if something is missing, say so and suggest what to ask in Pattern Catalogue or your platform docs.
 - When the user wants **security validation**, offer or run **Wiz CLI scan** on the path they specify (or after they save files under an allowed root).
 
@@ -349,6 +353,20 @@ def _wizcli_function_tools() -> list[FunctionTool]:
     ]
 
 
+def _local_workspace_function_tools() -> list[FunctionTool]:
+    from .local_workspace_tools import (
+        list_local_workspace_files,
+        read_local_workspace_file,
+        write_local_workspace_file,
+    )
+
+    return [
+        FunctionTool(write_local_workspace_file),
+        FunctionTool(read_local_workspace_file),
+        FunctionTool(list_local_workspace_files),
+    ]
+
+
 def _build_wiz_mcp_toolset() -> McpToolset:
     params = _wiz_connection_params()
     tf = _wiz_tool_filter_from_env()
@@ -384,7 +402,11 @@ def _build_patcat_mcp_toolset() -> McpToolset | None:
 
 
 def _all_agent_tools() -> list:
-    tools: list = [*_wizcli_function_tools(), _build_wiz_mcp_toolset()]
+    tools: list = [
+        *_wizcli_function_tools(),
+        *_local_workspace_function_tools(),
+        _build_wiz_mcp_toolset(),
+    ]
     pat = _build_patcat_mcp_toolset()
     if pat is not None:
         tools.append(pat)

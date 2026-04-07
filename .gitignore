@@ -27,6 +27,9 @@ htmlcov/
 .adk/
 *.db
 
+# Agent-generated local files (remove this line if you want outputs in git)
+agent_output/
+
 # OS / editor
 .DS_Store
 .idea/
