@@ -29,6 +29,9 @@ _OPENAI_TOOL_BUDGET = 128
 _FUNCTION_TOOLS = 2
 _MCP_TOOL_BUDGET = _OPENAI_TOOL_BUDGET - _FUNCTION_TOOLS
 
+# Native Gemini via Google AI Studio / ADK (same pattern as main branch devops_builder).
+_DEFAULT_GEMINI_MODEL = "gemini-2.5-pro"
+
 
 def _wiz_child_env() -> dict[str, str]:
     """Full environment for MCP child processes (PATH, auth env vars)."""
@@ -161,12 +164,21 @@ Stay concise unless the user asks for depth."""
 
 
 def _use_openai_backend() -> bool:
+    """Use LiteLLM only when targeting an OpenAI-compatible gateway.
+
+    Set ``LLM_PROVIDER=gemini`` and ``GOOGLE_API_KEY`` (and optionally ``ADK_MODEL``)
+    to use Gemini Pro via Google ADK + AI Studio, matching main branch ``devops_builder``.
+    """
     p = (os.environ.get("LLM_PROVIDER") or "").strip().lower()
     if p == "gemini":
         return False
     if p in ("openai", "oai", "litellm"):
         return True
-    if (os.environ.get("OPENAI_API_KEY") or "").strip():
+    has_google = bool((os.environ.get("GOOGLE_API_KEY") or "").strip())
+    has_openai_key = bool((os.environ.get("OPENAI_API_KEY") or "").strip())
+    if has_google and not has_openai_key:
+        return False
+    if has_openai_key:
         return True
     if (os.environ.get("OPENAI_BASE_URL") or "").strip():
         return True
@@ -183,9 +195,9 @@ def _openai_mcp_unlimited() -> bool:
 
 
 def _resolve_llm_model():
-    """Gemini model string, or LiteLlm for OpenAI / OpenAI-compatible endpoints."""
+    """Gemini model id for ADK, or LiteLlm for OpenAI-compatible gateways."""
     if not _use_openai_backend():
-        return os.environ.get("ADK_MODEL", "gemini-2.5-flash")
+        return (os.environ.get("ADK_MODEL") or _DEFAULT_GEMINI_MODEL).strip()
 
     from google.adk.models.lite_llm import LiteLlm
 
