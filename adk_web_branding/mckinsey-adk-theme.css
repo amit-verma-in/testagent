@@ -1,0 +1,37 @@
+/**
+ * McKinsey brand blue for ADK Web Dev UI (replaces default red/pink Material primary).
+ * Brand blue reference: #24477f (McKinsey visual identity, public palette sources).
+ */
+html {
+  --mat-sys-primary: #24477f;
+  --mat-sys-on-primary: #ffffff;
+  --mat-sys-primary-container: #d3e3f2;
+  --mat-sys-on-primary-container: #0d2844;
+  --mdc-theme-primary: #24477f;
+  --mdc-theme-on-primary: #ffffff;
+}
+
+/* FAB / agent “smart_toy” accents often use primary */
+.mat-mdc-fab.mat-primary,
+.mat-mdc-mini-fab.mat-primary,
+.mdc-fab--primary {
+  --mdc-fab-container-color: #24477f;
+  --mat-fab-foreground-color: #ffffff;
+}
+
+.mat-mdc-unelevated-button.mat-primary,
+.mat-mdc-raised-button.mat-primary {
+  --mdc-filled-button-container-color: #24477f;
+  --mdc-filled-button-label-text-color: #ffffff;
+}
+
+.mat-mdc-outlined-button.mat-primary {
+  --mdc-outlined-button-label-text-color: #24477f;
+  --mdc-outlined-button-outline-color: #24477f;
+}
+
+/* Icon tint in primary context */
+.mat-primary .mat-icon,
+[color="primary"] .mat-icon {
+  color: #24477f;
+}

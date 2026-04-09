@@ -10,4 +10,4 @@ fi
 source .venv/bin/activate
 python -m pip install -q -r requirements.txt
 export SSL_CERT_FILE="$(python -m certifi)"
-exec adk web "$@"
+exec python "$ROOT/run_adk_web_mckinsey.py" "$@"

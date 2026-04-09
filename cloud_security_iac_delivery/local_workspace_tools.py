@@ -95,6 +95,90 @@ async def write_local_workspace_file(
     }
 
 
+def _default_pattern_catalog_md(relative_directory: str) -> str:
+    rel = relative_directory.strip().rstrip("/")
+    return f"""# Pattern Catalogue alignment
+
+Terraform in this folder was produced with **Pattern Catalogue** conventions in mind.
+Use internal modules and sources returned by the Pattern Catalogue MCP tools for your organization.
+
+## Next steps (agent workflow)
+
+1. Use **Pattern Catalogue** MCP tools in this agent to confirm module sources, versions, and parameters.
+2. Replace or refine raw resources with `module` blocks per catalog guidance where applicable.
+3. Run `terraform fmt` and `terraform validate` locally.
+4. Optionally run `scan_local_terraform_code` on this folder after Wiz CLI authentication.
+
+Output folder (relative to agent output root): `{rel}/`
+"""
+
+
+async def write_terraform_stack(
+    output_relative_directory: str,
+    main_tf: str,
+    variables_tf: str,
+    outputs_tf: str,
+    readme_md: str,
+    pattern_catalog_md: str | None = None,
+) -> dict[str, Any]:
+    """Write a complete Terraform stack under one folder in the agent output directory.
+
+    Use this when authoring Terraform from **Pattern Catalogue** (or firm module) workflows so
+    outputs match the standard layout: one directory containing ``main.tf``, ``variables.tf``,
+    ``outputs.tf``, ``README.md``, and ``PATTERN_CATALOG.md`` (see ``agent_output/terraform/ecs-converted-alb``).
+
+    Args:
+        output_relative_directory: Directory **relative to the agent output root**, e.g.
+            ``terraform/my-ecs-service``. No trailing slash; must not escape the output root.
+        main_tf: Contents of ``main.tf``.
+        variables_tf: Contents of ``variables.tf``.
+        outputs_tf: Contents of ``outputs.tf``.
+        readme_md: Contents of ``README.md`` (describe the stack, inputs, and how to use it).
+        pattern_catalog_md: Optional contents of ``PATTERN_CATALOG.md``. If omitted, a default
+            Pattern Catalogue workflow stub is written.
+
+    Returns:
+        Status dict with ``ok``, ``files_written`` (absolute paths), ``output_directory_relative``,
+        or ``error`` / ``step`` on first failure.
+    """
+    base = output_relative_directory.strip().rstrip("/")
+    if not base or base.endswith((".tf", ".md")):
+        return {
+            "ok": False,
+            "error": "output_relative_directory must be a directory path (e.g. terraform/my-stack), not a file.",
+        }
+
+    pat = pattern_catalog_md if pattern_catalog_md is not None else _default_pattern_catalog_md(base)
+
+    files: list[tuple[str, str]] = [
+        ("main.tf", main_tf),
+        ("variables.tf", variables_tf),
+        ("outputs.tf", outputs_tf),
+        ("README.md", readme_md),
+        ("PATTERN_CATALOG.md", pat),
+    ]
+
+    written: list[str] = []
+    for name, content in files:
+        rel = f"{base}/{name}"
+        r = await write_local_workspace_file(rel, content, create_directories=True)
+        if not r.get("ok"):
+            return {
+                "ok": False,
+                "error": r.get("error"),
+                "step": name,
+                "files_written_so_far": written,
+            }
+        written.append(r["path"])
+
+    return {
+        "ok": True,
+        "output_directory_relative": base,
+        "files_written": written,
+        "output_root": str(_output_root()),
+    }
+
+
 async def read_local_workspace_file(relative_path: str) -> dict[str, Any]:
     """Read a UTF-8 text file from under the agent output directory."""
     try:

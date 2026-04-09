@@ -348,8 +348,8 @@ async def convert_cloudformation_template_to_terraform(
     """Read a CloudFormation template (YAML) and write Terraform files to the agent output directory.
 
     Parses Parameters and Resources that this tool knows how to map (ECS, ALB, IAM, logs, SG).
-    Emits ``main.tf``, ``variables.tf``, ``outputs.tf``, ``versions.tf`` fragment in main,
-    plus optional ``PATTERN_CATALOG.md`` with steps to align resources using Pattern Catalogue MCP tools.
+    Emits ``main.tf``, ``variables.tf``, ``outputs.tf`` (``versions.tf`` fragment lives in main),
+    ``README.md``, plus optional ``PATTERN_CATALOG.md`` with steps to align resources using Pattern Catalogue MCP tools.
 
     The Pattern Catalogue is **not** invoked from Python (MCP is available to the LLM at runtime).
     After conversion, use Pattern Catalogue MCP tools to replace ``aws_*`` resources with approved
@@ -704,6 +704,14 @@ async def convert_cloudformation_template_to_terraform(
         return {"ok": False, "error": r3.get("error"), "step": "outputs.tf"}
     written.append(r3["path"])
 
+    r_readme = await w(
+        f"{rel_base}/README.md",
+        _conversion_readme_md(rel_base, str(src.resolve())),
+    )
+    if not r_readme.get("ok"):
+        return {"ok": False, "error": r_readme.get("error"), "step": "README.md"}
+    written.append(r_readme["path"])
+
     pat_hints = _pattern_catalog_hints(logical_to_cfn_type)
 
     if write_pattern_catalog_readme:
@@ -782,6 +790,31 @@ def _pattern_catalog_hints(logical_to_cfn_type: dict[str, str]) -> list[dict[str
             }
         )
     return hints
+
+
+def _conversion_readme_md(rel_dir: str, template_path: str) -> str:
+    return f"""# Terraform stack
+
+Converted from CloudFormation template:
+
+`{template_path}`
+
+## Layout
+
+| File | Purpose |
+|------|---------|
+| `main.tf` | Provider and resources |
+| `variables.tf` | Input variables (from Parameters) |
+| `outputs.tf` | Outputs (from CloudFormation Outputs) |
+| `PATTERN_CATALOG.md` | Pattern Catalogue alignment and next steps |
+
+## Next steps
+
+1. Run `terraform fmt` and `terraform validate`.
+2. Use **Pattern Catalogue** MCP tools in this agent to replace raw `aws_*` resources with approved internal modules where required.
+
+Output folder (relative to agent output root): `{rel_dir}/`
+"""
 
 
 def _pattern_catalog_readme(hints: list[dict[str, str]], rel_dir: str) -> str:

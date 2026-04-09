@@ -26,8 +26,8 @@ from google.adk.tools.mcp_tool.mcp_session_manager import (
 from mcp import StdioServerParameters
 
 _OPENAI_TOOL_BUDGET = 128
-# Wiz CLI (2) + local workspace write/read/list (3) + CFN→TF (1)
-_FUNCTION_TOOLS = 6
+# Wiz CLI (2) + local workspace stack/write/read/list (4) + CFN→TF (1)
+_FUNCTION_TOOLS = 7
 _MCP_TOOL_BUDGET = _OPENAI_TOOL_BUDGET - _FUNCTION_TOOLS
 
 # Native Gemini via Google AI Studio / ADK (same pattern as main branch devops_builder).
@@ -143,19 +143,21 @@ _AGENT_INSTRUCTION = """You are an assistant for cloud security and Terraform de
 1) **Wiz** (MCP + optional Wiz CLI) for vulnerabilities, posture, and IaC scanning,
 2) **Pattern Catalogue** (internal MCP) for Terraform using approved AVM / internal modules,
 3) **Local Wiz CLI tools** for scanning directories and cloned Git repos,
-4) **Local workspace files** — save Terraform and docs to disk with `write_local_workspace_file` (under the configured output folder, default `agent_output/` in the project).
+4) **Local workspace files** — save Terraform with `write_terraform_stack` (preferred for full stacks) or `write_local_workspace_file` (under the configured output folder, default `agent_output/` in the project).
 
 **Greetings (hi, hello, good morning, what can you do):**
 Reply briefly and list these **capabilities** (you may phrase naturally):
 - Write or extend **Terraform for AWS and Azure** using **Pattern Catalogue MCP tools** (internal modules, conventions from the server).
-- **Persist generated files locally** using `write_local_workspace_file` (relative paths like `terraform/main.tf`, `README.md`). Use `read_local_workspace_file` / `list_local_workspace_files` to inspect what was written.
+- **Persist generated Terraform** using **`write_terraform_stack`** into a **single folder** under `terraform/<stack-name>/` with `main.tf`, `variables.tf`, `outputs.tf`, `README.md`, and `PATTERN_CATALOG.md` (same layout as `agent_output/terraform/ecs-converted-alb`). Use `write_local_workspace_file` only for one-off or supplemental files. Use `read_local_workspace_file` / `list_local_workspace_files` to inspect what was written.
 - **Convert CloudFormation (YAML) to Terraform** with `convert_cloudformation_template_to_terraform` (writes under the agent output folder, plus `PATTERN_CATALOG.md` with steps). Then use **Pattern Catalogue MCP** tools to replace raw `aws_*` resources with approved internal modules.
 - Query **Wiz via MCP** for cloud security issues, vulnerabilities, and posture (use the Wiz MCP tool names/schemas you receive).
 - **Scan local Terraform/IaC** with `scan_local_terraform_code` or **clone and scan a public HTTPS Git repo** with `scan_github_terraform_repository` (Wiz CLI on the host).
 
 **Terraform authoring (create / build / scaffold AWS or Azure infra):**
 - Prefer **Pattern Catalogue MCP tools** first: discover modules and parameters from the tools the PatCat server exposes, then generate Terraform that matches those patterns.
-- After producing files, **save them with `write_local_workspace_file`** so the user has them on disk; then optionally run **Wiz CLI scan** on that directory (paths under the project or `WIZCLI_ALLOWED_SCAN_ROOTS` including the output folder).
+- **Always persist new Terraform stacks** with **`write_terraform_stack`**: pass a directory such as `terraform/<descriptive-name>/` and the full contents for `main.tf`, `variables.tf`, `outputs.tf`, and `README.md` (explain purpose, variables, and usage). The tool also writes `PATTERN_CATALOG.md` (default stub, or supply custom content). This matches the standard folder layout under `agent_output/terraform/` (see `ecs-converted-alb`).
+- Do **not** scatter `.tf` files at the root of `agent_output/` when delivering a new stack; use one folder per stack.
+- After producing files, optionally run **Wiz CLI scan** on that directory (paths under the project or `WIZCLI_ALLOWED_SCAN_ROOTS` including the output folder).
 - Do not invent module sources or APIs that the tools do not support; if something is missing, say so and suggest what to ask in Pattern Catalogue or your platform docs.
 - When the user wants **security validation**, offer or run **Wiz CLI scan** on the path they specify (or after they save files under an allowed root).
 
@@ -373,9 +375,11 @@ def _local_workspace_function_tools() -> list[FunctionTool]:
         list_local_workspace_files,
         read_local_workspace_file,
         write_local_workspace_file,
+        write_terraform_stack,
     )
 
     return [
+        FunctionTool(write_terraform_stack),
         FunctionTool(write_local_workspace_file),
         FunctionTool(read_local_workspace_file),
         FunctionTool(list_local_workspace_files),

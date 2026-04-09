@@ -26,6 +26,7 @@ htmlcov/
 
 # ADK / local agent data
 .adk/
+.adk_web_branded/
 *.db
 
 # Agent-generated local files (remove this line if you want outputs in git)
