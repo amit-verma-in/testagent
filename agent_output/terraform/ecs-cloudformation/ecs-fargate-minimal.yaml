@@ -1,0 +1,132 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Minimal ECS Fargate sample: one service in awsvpc mode with a public IP (demo / lab only).
+  Use private subnets + NAT and DISABLED public IP for production.
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: sample-ecs-min
+    Description: Prefix for resource names.
+
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC for the service.
+
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: >
+      Subnets for tasks. For this minimal template, use subnets with a route to an internet
+      gateway if AssignPublicIp is ENABLED (default).
+
+  ContainerImage:
+    Type: String
+    Default: public.ecr.aws/docker/library/nginx:alpine
+
+  ContainerPort:
+    Type: Number
+    Default: 80
+
+  DesiredCount:
+    Type: Number
+    Default: 1
+    MinValue: 0
+    MaxValue: 5
+
+  AssignPublicIp:
+    Type: String
+    Default: ENABLED
+    AllowedValues:
+      - ENABLED
+      - DISABLED
+    Description: ENABLED = tasks get a public IP (simple demo). DISABLED requires NAT for pulls.
+
+Resources:
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Sub '${EnvironmentName}-cluster'
+
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/ecs/${EnvironmentName}-minimal'
+      RetentionInDays: 7
+
+  TaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+
+  TaskSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Sub 'Fargate tasks ${EnvironmentName}'
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: !Ref ContainerPort
+          ToPort: !Ref ContainerPort
+          CidrIp: 0.0.0.0/0
+          Description: World-open for lab demo only
+      Tags:
+        - Key: Name
+          Value: !Sub '${EnvironmentName}-task-sg'
+
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub '${EnvironmentName}-task'
+      Cpu: '256'
+      Memory: '512'
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      ExecutionRoleArn: !Ref TaskExecutionRole
+      ContainerDefinitions:
+        - Name: web
+          Image: !Ref ContainerImage
+          Essential: true
+          PortMappings:
+            - ContainerPort: !Ref ContainerPort
+              Protocol: tcp
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref LogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: ecs
+
+  ECSService:
+    Type: AWS::ECS::Service
+    Properties:
+      ServiceName: !Sub '${EnvironmentName}-svc'
+      Cluster: !Ref ECSCluster
+      TaskDefinition: !Ref TaskDefinition
+      DesiredCount: !Ref DesiredCount
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: !Ref AssignPublicIp
+          Subnets: !Ref SubnetIds
+          SecurityGroups:
+            - !Ref TaskSecurityGroup
+
+Outputs:
+  ClusterName:
+    Value: !Ref ECSCluster
+
+  ServiceArn:
+    Value: !Ref ECSService
+
+  TaskSecurityGroupId:
+    Description: Security group on tasks (ingress open to 0.0.0.0/0 in this sample).
+    Value: !Ref TaskSecurityGroup
