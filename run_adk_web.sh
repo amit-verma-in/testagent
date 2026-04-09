@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run ADK Web from a project-local virtualenv (repo root = parent of wiz_vuln_agent).
+# Run ADK Web from a project-local virtualenv (repo root = parent of cloud_security_iac_delivery).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 cd "$ROOT"

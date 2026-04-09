@@ -2,7 +2,7 @@
 
 This repository hosts a **Google ADK** (`adk web`) agent that combines **Wiz** (cloud security), an internal **Pattern Catalogue** MCP server (Terraform patterns and modules), **local Wiz CLI** scans, and **on-disk file tools** for generated artifacts.
 
-The agent package lives in `wiz_vuln_agent/` and exposes `root_agent` as `wiz_vuln_agent.agent:root_agent`.
+The Python package directory is **`cloud_security_iac_delivery/`** (valid import path). The ADK **`LlmAgent` name** must be a valid identifier; it is set to **`Cloud_Security_IaC_Delivery`** (human title: *Cloud Security & IaC Delivery*). Expose `root_agent` as `cloud_security_iac_delivery.agent:root_agent`.
 
 ## What it can do
 
@@ -19,7 +19,7 @@ The agent package lives in `wiz_vuln_agent/` and exposes `root_agent` as `wiz_vu
 
 ## Setup
 
-1. Clone or copy this repo and open a terminal at the **repository root** (the directory that contains `wiz_vuln_agent/`).
+1. Clone or copy this repo and open a terminal at the **repository root** (the directory that contains `cloud_security_iac_delivery/`).
 
 2. Create a virtual environment and install dependencies:
 
@@ -40,7 +40,7 @@ The agent package lives in `wiz_vuln_agent/` and exposes `root_agent` as `wiz_vu
    - **Gemini (recommended for this project):** `GOOGLE_API_KEY`, optionally `ADK_MODEL` (default in code is `gemini-2.5-pro`). Set `LLM_PROVIDER=gemini` if you also have `OPENAI_API_KEY` set but want Gemini.
    - **OpenAI-compatible API:** `OPENAI_API_KEY` and optionally `OPENAI_BASE_URL`, `OPENAI_MODEL` / `LITELLM_MODEL`.
 
-5. **Wiz MCP** — Set one of the following (see comments in `wiz_vuln_agent/agent.py` for full options):
+5. **Wiz MCP** — Set one of the following (see comments in `cloud_security_iac_delivery/agent.py` for full options):
 
    - `WIZ_MCP_REMOTE_URL` — e.g. Wiz’s remote MCP URL; uses `npx mcp-remote` and OAuth.
    - Or `WIZ_MCP_URL` + optional `WIZ_MCP_HEADERS_JSON` for streamable HTTP.
@@ -66,7 +66,7 @@ Or use the helper script (creates/uses `.venv`, sets `SSL_CERT_FILE` via `certif
 
 Pass extra `adk web` arguments through the script: `./run_adk_web.sh --port 8000`.
 
-In the ADK UI, select the app/module that maps to **`wiz_vuln_agent.agent`** (agent name in code: `wiz_patcat_assistant`).
+In the ADK UI, select the app/module that maps to **`cloud_security_iac_delivery.agent`** (agent `name` in code: `Cloud_Security_IaC_Delivery`).
 
 ## Wiz CLI authentication
 
@@ -74,9 +74,8 @@ In the ADK UI, select the app/module that maps to **`wiz_vuln_agent.agent`** (ag
 
 - **Device code:** `wizcli auth --use-device-code` (or follow current `wizcli auth --help`), or  
 - **Service account:** set `WIZ_CLIENT_ID` and `WIZ_CLIENT_SECRET` where your shell runs the agent / `adk web`.
-- `wizcli scan dir --use-device-code --no-publish`
 
-Scan paths must stay under allowed roots (project root and `.wiz_scan_work` by default, or paths listed in `WIZCLI_ALLOWED_SCAN_ROOTS`). See `wiz_vuln_agent/wizcli_tools.py` for timeouts and other `WIZCLI_*` options.
+Scan paths must stay under allowed roots (project root and `.wiz_scan_work` by default, or paths listed in `WIZCLI_ALLOWED_SCAN_ROOTS`). See `cloud_security_iac_delivery/wizcli_tools.py` for timeouts and other `WIZCLI_*` options.
 
 ## Local output directory
 
@@ -86,9 +85,9 @@ By default, `write_local_workspace_file` and related tools write under **`agent_
 
 | Path | Purpose |
 |------|---------|
-| `wiz_vuln_agent/agent.py` | ADK `LlmAgent`, MCP toolsets, instruction text |
-| `wiz_vuln_agent/wizcli_tools.py` | Wiz CLI scan helpers |
-| `wiz_vuln_agent/local_workspace_tools.py` | Read/write/list under the local output dir |
+| `cloud_security_iac_delivery/agent.py` | ADK `LlmAgent`, MCP toolsets, instruction text |
+| `cloud_security_iac_delivery/wizcli_tools.py` | Wiz CLI scan helpers |
+| `cloud_security_iac_delivery/local_workspace_tools.py` | Read/write/list under the local output dir |
 | `requirements.txt` | Python dependencies |
 | `env.example` | Example `.env` keys for LLM + local tools |
 | `run_adk_web.sh` | Convenience launcher for `adk web` |

@@ -11,7 +11,7 @@ from typing import override
 
 from dotenv import load_dotenv
 
-# Repo root (parent of wiz_vuln_agent/). ADK web often uses another cwd, so load .env by path.
+# Repo root (parent of the agent package, e.g. cloud_security_iac_delivery/). ADK web often uses another cwd, so load .env by path.
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(_PROJECT_ROOT / ".env")
 load_dotenv()
@@ -26,8 +26,8 @@ from google.adk.tools.mcp_tool.mcp_session_manager import (
 from mcp import StdioServerParameters
 
 _OPENAI_TOOL_BUDGET = 128
-# Wiz CLI (2) + local workspace write/read/list (3)
-_FUNCTION_TOOLS = 5
+# Wiz CLI (2) + local workspace write/read/list (3) + CFN→TF (1)
+_FUNCTION_TOOLS = 6
 _MCP_TOOL_BUDGET = _OPENAI_TOOL_BUDGET - _FUNCTION_TOOLS
 
 # Native Gemini via Google AI Studio / ADK (same pattern as main branch devops_builder).
@@ -149,6 +149,7 @@ _AGENT_INSTRUCTION = """You are an assistant for cloud security and Terraform de
 Reply briefly and list these **capabilities** (you may phrase naturally):
 - Write or extend **Terraform for AWS and Azure** using **Pattern Catalogue MCP tools** (internal modules, conventions from the server).
 - **Persist generated files locally** using `write_local_workspace_file` (relative paths like `terraform/main.tf`, `README.md`). Use `read_local_workspace_file` / `list_local_workspace_files` to inspect what was written.
+- **Convert CloudFormation (YAML) to Terraform** with `convert_cloudformation_template_to_terraform` (writes under the agent output folder, plus `PATTERN_CATALOG.md` with steps). Then use **Pattern Catalogue MCP** tools to replace raw `aws_*` resources with approved internal modules.
 - Query **Wiz via MCP** for cloud security issues, vulnerabilities, and posture (use the Wiz MCP tool names/schemas you receive).
 - **Scan local Terraform/IaC** with `scan_local_terraform_code` or **clone and scan a public HTTPS Git repo** with `scan_github_terraform_repository` (Wiz CLI on the host).
 
@@ -157,6 +158,20 @@ Reply briefly and list these **capabilities** (you may phrase naturally):
 - After producing files, **save them with `write_local_workspace_file`** so the user has them on disk; then optionally run **Wiz CLI scan** on that directory (paths under the project or `WIZCLI_ALLOWED_SCAN_ROOTS` including the output folder).
 - Do not invent module sources or APIs that the tools do not support; if something is missing, say so and suggest what to ask in Pattern Catalogue or your platform docs.
 - When the user wants **security validation**, offer or run **Wiz CLI scan** on the path they specify (or after they save files under an allowed root).
+
+**ECS Fargate + Application Load Balancer (AWS) — canonical layout for this project:**
+When scaffolding or refactoring **internet-facing** ECS services behind an ALB (including migrations from CloudFormation), follow the same **module wiring and ordering** as `agent_output/terraform/ecs-converted-alb/main.tf` unless the user asks otherwise:
+1. **Provider:** `hashicorp/aws` with `version = ">= 5.23, < 7.0"` (match that file).
+2. **CloudWatch:** `cloudwatch/aws//modules/log-group` for `/ecs/${var.environment_name}`, retention set explicitly.
+3. **IAM:** separate modules for **ecs-execution-role** and **ecs-task-role** (names including `environment_name` and `stack_name`).
+4. **Security groups:** plain `aws_security_group` resources with **ingress + egress** rules; ALB allows **HTTP from `0.0.0.0/0`** when the design is a public load balancer; tasks only accept traffic from the ALB SG on `container_port`.
+5. **ALB:** a **single** `alb/aws` module using **`target_groups`**, **`http_tcp_listeners`**, and **`internal = false`**, **`load_balancer_type = "application"`** — do **not** split into separate target-group + ALB modules unless the user or Pattern Catalogue requires it.
+6. **ECS cluster:** `ecs/aws//modules/cluster` with **`fargate_capacity_providers`** (e.g. FARGATE weight 100).
+7. **Task definition:** `ecs/aws//modules/task-definition` with **`container_definitions` as a map** (keys = container name), **`port_mappings`** and **`log_configuration`** nested — avoid `jsonencode([...])` for container defs when the module expects a map/object structure.
+8. **ECS service:** `ecs/aws//modules/service` with **`capacity_provider_strategy`**, **`network_configuration`** (`assign_public_ip = false` for tasks in private subnets), and **`load_balancer`** as a **list** of objects referencing **`module.alb.target_group_arns[0]`**.
+9. Use **`version = "~> x.y"`** style constraints consistent with that reference; do not switch to a “minimal” ALB layout (`internal = true`, corporate CIDR-only ingress, or standalone target-group module) unless the user requests enterprise guardrails explicitly.
+
+**Anti-patterns to avoid** (unless requested): standalone `target-group` module + separate `alb` with a different listener schema; changing public ALB to **internal**; replacing `0.0.0.0/0` ALB ingress with arbitrary RFC1918 CIDRs “by default”; using `jsonencode` for container definitions when the reference uses a map.
 
 **Wiz MCP (cloud / platform data):**
 - For vulnerabilities, issues, exposure, compliance: call the relevant **Wiz MCP** tools; ground answers in tool output only.
@@ -367,6 +382,12 @@ def _local_workspace_function_tools() -> list[FunctionTool]:
     ]
 
 
+def _cfn_terraform_function_tools() -> list[FunctionTool]:
+    from .cfn_terraform_tools import convert_cloudformation_template_to_terraform
+
+    return [FunctionTool(convert_cloudformation_template_to_terraform)]
+
+
 def _build_wiz_mcp_toolset() -> McpToolset:
     params = _wiz_connection_params()
     tf = _wiz_tool_filter_from_env()
@@ -405,6 +426,7 @@ def _all_agent_tools() -> list:
     tools: list = [
         *_wizcli_function_tools(),
         *_local_workspace_function_tools(),
+        *_cfn_terraform_function_tools(),
         _build_wiz_mcp_toolset(),
     ]
     pat = _build_patcat_mcp_toolset()
@@ -413,9 +435,11 @@ def _all_agent_tools() -> list:
     return tools
 
 
+# ADK requires `name` to be a valid Python-like identifier (letters, digits, underscores only).
+# Human-facing title: "Cloud Security & IaC Delivery".
 root_agent = LlmAgent(
     model=_resolve_llm_model(),
-    name="wiz_patcat_assistant",
+    name="Cloud_Security_IaC_Delivery",
     instruction=_AGENT_INSTRUCTION,
     tools=_all_agent_tools(),
 )

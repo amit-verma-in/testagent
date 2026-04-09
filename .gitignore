@@ -1,6 +1,7 @@
 # Secrets — never commit
 .env
-.env.*
+*.env
+cloud_security_iac_delivery/.env
 !.env.example
 !**/.env.example
 **/.env

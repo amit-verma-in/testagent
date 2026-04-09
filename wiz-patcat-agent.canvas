@@ -1,0 +1,212 @@
+{
+  "nodes": [
+    {
+      "id": "grp-title",
+      "type": "group",
+      "x": -80,
+      "y": -40,
+      "width": 1120,
+      "height": 200,
+      "label": "testagent — Wiz & Pattern Catalogue ADK"
+    },
+    {
+      "id": "title",
+      "type": "text",
+      "x": 40,
+      "y": 20,
+      "width": 880,
+      "height": 120,
+      "color": "5",
+      "text": "## Current use case\n\n**Cloud security + Terraform delivery:** query **Wiz** (posture, vulns, inventory), author infra with **Pattern Catalogue** (approved modules), **persist files** under `agent_output/`, **scan IaC** with **wizcli**, and **convert CloudFormation → Terraform** then align with catalog modules.\n\nRun from repo root: `./run_adk_web.sh` — select agent **`cloud_security_iac_delivery.agent`** (registered name **`Cloud_Security_IaC_Delivery`**; `&` is not allowed in ADK agent names)."
+    },
+    {
+      "id": "grp-config",
+      "type": "group",
+      "x": -80,
+      "y": 200,
+      "width": 320,
+      "height": 280,
+      "label": "Configuration"
+    },
+    {
+      "id": "config",
+      "type": "text",
+      "x": -40,
+      "y": 240,
+      "width": 240,
+      "height": 220,
+      "text": "### Env (`.env` at repo root)\n\n- `GOOGLE_API_KEY` + `ADK_MODEL` (Gemini)\n- `LLM_PROVIDER=gemini` if needed\n- **Wiz MCP:** `WIZ_MCP_REMOTE_URL` (mcp-remote + `~/.mcp-auth`)\n- **Pattern Catalogue:** `PATCAT_MCP_REMOTE_URL` or `PATCAT_MCP_URL`\n- Optional: `MCP_SESSION_TIMEOUT`, tool filters"
+    },
+    {
+      "id": "grp-agent",
+      "type": "group",
+      "x": 280,
+      "y": 200,
+      "width": 300,
+      "height": 280,
+      "label": "ADK agent"
+    },
+    {
+      "id": "agent-core",
+      "type": "text",
+      "x": 320,
+      "y": 240,
+      "width": 220,
+      "height": 220,
+      "color": "4",
+      "text": "### `root_agent`\n\n- **Name:** `Cloud_Security_IaC_Delivery`\n- **Tools:** Wiz MCP + PatCat MCP (if configured) + 6 function tools\n- **Instruction:** PatCat first for TF; Wiz MCP for security data; wizcli for local/Git scans; save files to workspace."
+    },
+    {
+      "id": "f-agent",
+      "type": "file",
+      "x": 320,
+      "y": 500,
+      "width": 260,
+      "height": 56,
+      "file": "cloud_security_iac_delivery/agent.py"
+    },
+    {
+      "id": "grp-mcp",
+      "type": "group",
+      "x": 620,
+      "y": 200,
+      "width": 340,
+      "height": 280,
+      "label": "MCP (remote / HTTP)"
+    },
+    {
+      "id": "mcp-wiz",
+      "type": "text",
+      "x": 660,
+      "y": 240,
+      "width": 280,
+      "height": 120,
+      "text": "### Wiz MCP\n\nVulnerabilities, findings, inventory, posture — use **tool schemas** from the server.\n\nOAuth via `npx mcp-remote`; tokens under `~/.mcp-auth`."
+    },
+    {
+      "id": "mcp-patcat",
+      "type": "text",
+      "x": 660,
+      "y": 360,
+      "width": 280,
+      "height": 100,
+      "color": "6",
+      "text": "### Pattern Catalogue MCP\n\nDiscover **modules / parameters** for AWS & Azure TF. **Prefer catalog modules** over hand-rolled `aws_*` when generating Terraform."
+    },
+    {
+      "id": "grp-local",
+      "type": "group",
+      "x": 1000,
+      "y": 200,
+      "width": 380,
+      "height": 420,
+      "label": "Host tools (function)"
+    },
+    {
+      "id": "local-wizcli",
+      "type": "text",
+      "x": 1040,
+      "y": 240,
+      "width": 300,
+      "height": 100,
+      "text": "### Wiz CLI\n\n`scan_local_terraform_code` · `scan_github_terraform_repository`\n\nAuth: **device code** or `WIZ_CLIENT_ID` / `WIZ_CLIENT_SECRET` (not MCP token)."
+    },
+    {
+      "id": "local-fs",
+      "type": "text",
+      "x": 1040,
+      "y": 360,
+      "width": 300,
+      "height": 80,
+      "text": "### Workspace\n\n`write_local_workspace_file` · `read_*` · `list_*` → default **`agent_output/`**"
+    },
+    {
+      "id": "local-cfn",
+      "type": "text",
+      "x": 1040,
+      "y": 460,
+      "width": 300,
+      "height": 120,
+      "color": "2",
+      "text": "### CFN → Terraform\n\n`convert_cloudformation_template_to_terraform`\n\nWrites `main.tf` / `variables.tf` / `outputs.tf` + **`PATTERN_CATALOG.md`**. Then use **PatCat MCP** to swap in approved modules."
+    },
+    {
+      "id": "f-cfn",
+      "type": "file",
+      "x": 1040,
+      "y": 600,
+      "width": 300,
+      "height": 50,
+      "file": "cloud_security_iac_delivery/cfn_terraform_tools.py"
+    },
+    {
+      "id": "grp-artifacts",
+      "type": "group",
+      "x": -80,
+      "y": 520,
+      "width": 880,
+      "height": 200,
+      "label": "Artifacts & samples"
+    },
+    {
+      "id": "artifacts",
+      "type": "text",
+      "x": -40,
+      "y": 560,
+      "width": 800,
+      "height": 140,
+      "text": "### On disk\n\n| Path | Role |\n|------|------|\n| `agent_output/terraform/` | Generated TF, CFN samples, ECS CloudFormation YAML |\n| `ecs-converted-*` / `cfn-from-*` | CFN converter output |\n| `static-website/`, `lambda-vulnerable/` | Example stacks |\n\nOptional: `scan_local_terraform_code` on these paths after **wizcli** login."
+    },
+    {
+      "id": "f-readme",
+      "type": "file",
+      "x": -80,
+      "y": 760,
+      "width": 200,
+      "height": 50,
+      "file": "README.md"
+    },
+    {
+      "id": "f-run",
+      "type": "file",
+      "x": 140,
+      "y": 760,
+      "width": 200,
+      "height": 50,
+      "file": "run_adk_web.sh"
+    },
+    {
+      "id": "link-wiz-cli",
+      "type": "link",
+      "x": 1040,
+      "y": 680,
+      "width": 280,
+      "height": 48,
+      "url": "https://docs.wiz.io/wiz-cli/"
+    },
+    {
+      "id": "link-wiz-mcp-doc",
+      "type": "link",
+      "x": 660,
+      "y": 500,
+      "width": 280,
+      "height": 48,
+      "url": "https://docs.wiz.io/docs/set-up-wiz-mcp-server"
+    }
+  ],
+  "edges": [
+    { "id": "e1", "fromNode": "title", "toNode": "config", "fromSide": "bottom", "toSide": "top" },
+    { "id": "e2", "fromNode": "config", "toNode": "agent-core", "fromSide": "right", "toSide": "left", "label": "env loads" },
+    { "id": "e3", "fromNode": "agent-core", "toNode": "mcp-wiz", "fromSide": "right", "toSide": "left" },
+    { "id": "e4", "fromNode": "agent-core", "toNode": "mcp-patcat", "fromSide": "right", "toSide": "left" },
+    { "id": "e5", "fromNode": "agent-core", "toNode": "local-wizcli", "fromSide": "right", "toSide": "left" },
+    { "id": "e6", "fromNode": "agent-core", "toNode": "local-fs", "fromSide": "right", "toSide": "left" },
+    { "id": "e7", "fromNode": "agent-core", "toNode": "local-cfn", "fromSide": "right", "toSide": "left" },
+    { "id": "e8", "fromNode": "mcp-patcat", "toNode": "local-cfn", "fromSide": "right", "toSide": "left", "label": "refine TF", "color": "6" },
+    { "id": "e9", "fromNode": "local-fs", "toNode": "artifacts", "fromSide": "bottom", "toSide": "top" },
+    { "id": "e10", "fromNode": "local-cfn", "toNode": "artifacts", "fromSide": "bottom", "toSide": "top" },
+    { "id": "e11", "fromNode": "agent-core", "toNode": "f-agent", "fromSide": "bottom", "toSide": "top" },
+    { "id": "e12", "fromNode": "mcp-wiz", "toNode": "link-wiz-mcp-doc", "fromSide": "bottom", "toSide": "top" },
+    { "id": "e13", "fromNode": "local-wizcli", "toNode": "link-wiz-cli", "fromSide": "bottom", "toSide": "top" }
+  ]
+}
