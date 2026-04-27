@@ -28,18 +28,18 @@ variable "subnet_ids" {
 }
 
 variable "container_image" {
-  type        = string
-  default     = "public.ecr.aws/docker/library/nginx:alpine"
+  type    = string
+  default = "public.ecr.aws/docker/library/nginx:alpine"
 }
 
 variable "container_port" {
-  type        = number
-  default     = 80
+  type    = number
+  default = 80
 }
 
 variable "desired_count" {
-  type        = number
-  default     = 1
+  type    = number
+  default = 1
 }
 
 variable "assign_public_ip" {

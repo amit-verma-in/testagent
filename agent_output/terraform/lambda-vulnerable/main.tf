@@ -67,8 +67,8 @@ resource "aws_cloudwatch_log_group" "lambda" {
 
 resource "aws_lambda_function" "vulnerable" {
   function_name = local.name
-  role            = aws_iam_role.lambda_exec.arn
-  handler         = "index.handler"
+  role          = aws_iam_role.lambda_exec.arn
+  handler       = "index.handler"
   # Misconfiguration: end-of-life / deprecated runtime (scanners flag this).
   runtime     = "nodejs16.x"
   memory_size = 128
@@ -79,8 +79,8 @@ resource "aws_lambda_function" "vulnerable" {
   environment {
     variables = {
       # Misconfiguration: secrets and credentials in plain environment variables.
-      API_KEY              = ""
-      DATABASE_PASSWORD    = ""
+      API_KEY               = ""
+      DATABASE_PASSWORD     = ""
       AWS_ACCESS_KEY_ID     = ""
       AWS_SECRET_ACCESS_KEY = ""
       DEBUG                 = "true"

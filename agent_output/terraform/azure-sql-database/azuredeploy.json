@@ -1,0 +1,148 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "description": "Azure SQL logical server, single database, and firewall rules."
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Region for all resources."
+      }
+    },
+    "sqlServerName": {
+      "type": "string",
+      "minLength": 1,
+      "metadata": {
+        "description": "Logical SQL server name (globally unique)."
+      }
+    },
+    "databaseName": {
+      "type": "string",
+      "defaultValue": "appdb",
+      "metadata": {
+        "description": "Database name."
+      }
+    },
+    "sqlAdminLogin": {
+      "type": "string",
+      "minLength": 1,
+      "metadata": {
+        "description": "Server administrator login."
+      }
+    },
+    "sqlAdminPassword": {
+      "type": "secureString",
+      "metadata": {
+        "description": "Server administrator password."
+      }
+    },
+    "skuName": {
+      "type": "string",
+      "defaultValue": "Basic",
+      "metadata": {
+        "description": "Database SKU name (e.g. Basic, S0)."
+      }
+    },
+    "skuTier": {
+      "type": "string",
+      "defaultValue": "Basic",
+      "metadata": {
+        "description": "Database SKU tier."
+      }
+    },
+    "allowAzureServices": {
+      "type": "bool",
+      "defaultValue": true,
+      "metadata": {
+        "description": "Allow Azure services through firewall."
+      }
+    },
+    "clientIpStart": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Optional client IP start (empty to skip)."
+      }
+    },
+    "clientIpEnd": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Optional client IP end."
+      }
+    }
+  },
+  "variables": {
+    "addClientRule": "[and(not(equals(parameters('clientIpStart'), '')), not(equals(parameters('clientIpEnd'), '')))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Sql/servers",
+      "apiVersion": "2021-11-01",
+      "name": "[parameters('sqlServerName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "administratorLogin": "[parameters('sqlAdminLogin')]",
+        "administratorLoginPassword": "[parameters('sqlAdminPassword')]",
+        "version": "12.0",
+        "minimalTlsVersion": "1.2",
+        "publicNetworkAccess": "Enabled"
+      }
+    },
+    {
+      "condition": "[parameters('allowAzureServices')]",
+      "type": "Microsoft.Sql/servers/firewallRules",
+      "apiVersion": "2021-11-01",
+      "name": "[concat(parameters('sqlServerName'), '/AllowAllWindowsAzureIps')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Sql/servers', parameters('sqlServerName'))]"
+      ],
+      "properties": {
+        "startIpAddress": "0.0.0.0",
+        "endIpAddress": "0.0.0.0"
+      }
+    },
+    {
+      "condition": "[variables('addClientRule')]",
+      "type": "Microsoft.Sql/servers/firewallRules",
+      "apiVersion": "2021-11-01",
+      "name": "[concat(parameters('sqlServerName'), '/ClientIpRule')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Sql/servers', parameters('sqlServerName'))]"
+      ],
+      "properties": {
+        "startIpAddress": "[parameters('clientIpStart')]",
+        "endIpAddress": "[parameters('clientIpEnd')]"
+      }
+    },
+    {
+      "type": "Microsoft.Sql/servers/databases",
+      "apiVersion": "2021-11-01",
+      "name": "[concat(parameters('sqlServerName'), '/', parameters('databaseName'))]",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Sql/servers', parameters('sqlServerName'))]"
+      ],
+      "sku": {
+        "name": "[parameters('skuName')]",
+        "tier": "[parameters('skuTier')]"
+      },
+      "properties": {
+        "collation": "SQL_Latin1_General_CP1_CI_AS"
+      }
+    }
+  ],
+  "outputs": {
+    "sqlServerFqdn": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.Sql/servers', parameters('sqlServerName')), '2021-11-01').fullyQualifiedDomainName]"
+    },
+    "databaseResourceId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Sql/servers/databases', parameters('sqlServerName'), parameters('databaseName'))]"
+    }
+  }
+}

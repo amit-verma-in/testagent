@@ -16,7 +16,7 @@ provider "aws" {
 module "cloudwatch_log_group" {
   source  = "terraform.mckinsey.cloud/FIRM-TF-MODULES/cloudwatch/aws//modules/log-group"
   version = "~> 1.0"
-  
+
   name              = "/ecs/${var.environment_name}"
   retention_in_days = 30
 }
@@ -73,14 +73,14 @@ resource "aws_security_group" "service_security_group" {
 module "alb" {
   source  = "terraform.mckinsey.cloud/FIRM-TF-MODULES/alb/aws"
   version = "~> 3.0"
-  
+
   name               = "${var.environment_name}-alb"
   vpc_id             = var.vpc_id
   subnets            = var.public_subnet_ids
   security_groups    = [aws_security_group.alb_security_group.id]
   internal           = false
   load_balancer_type = "application"
-  
+
   target_groups = [
     {
       name        = "${var.environment_name}-tg"
@@ -128,9 +128,9 @@ module "ecs_task_definition" {
   network_mode             = "awsvpc"
   cpu                      = var.task_cpu
   memory                   = var.task_memory
-  
-  execution_role_arn       = module.ecs_execution_role.arn
-  task_role_arn            = module.ecs_task_role.arn
+
+  execution_role_arn = module.ecs_execution_role.arn
+  task_role_arn      = module.ecs_task_role.arn
 
   container_definitions = {
     "app" = {

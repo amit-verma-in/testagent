@@ -1,11 +1,11 @@
 # Generated from CloudFormation Outputs.
 
 output "cluster_name" {
-  value       = aws_ecs_cluster.ecs_cluster.name
+  value = aws_ecs_cluster.ecs_cluster.name
 }
 
 output "service_arn" {
-  value       = aws_ecs_service.ecs_service.id
+  value = aws_ecs_service.ecs_service.id
 }
 
 output "task_security_group_id" {

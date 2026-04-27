@@ -1,0 +1,97 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Minimal SageMaker Notebook Instance with execution role (lab / demo).
+  Uses a VPC subnet + security group (required for many accounts). Restrict IAM and
+  network access for production.
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: sample-sm-notebook
+    Description: Prefix for logical names and tags.
+
+  NotebookInstanceType:
+    Type: String
+    Default: ml.t3.medium
+    Description: SageMaker notebook instance type (see SageMaker pricing).
+
+  VolumeSizeInGB:
+    Type: Number
+    Default: 5
+    MinValue: 5
+    MaxValue: 16384
+    Description: EBS volume size (GB) for the notebook.
+
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC for the notebook elastic network interface.
+
+  SubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Description: Subnet for the notebook (typically private; use a NAT route for internet if DirectInternetAccess is Disabled).
+
+  SecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: Security group attached to the notebook ENI (allow egress as needed).
+
+  DirectInternetAccess:
+    Type: String
+    Default: Enabled
+    AllowedValues:
+      - Enabled
+      - Disabled
+    Description: >
+      Enabled = simpler lab setup when subnet routes to IGW. Disabled = use NAT/VPC endpoints
+      for ECR/S3 and tighter egress.
+
+Resources:
+  NotebookExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${EnvironmentName}-sm-notebook-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: sagemaker.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        # Lab only — replace with scoped policies for production.
+        - arn:aws:iam::aws:policy/AmazonSageMakerFullAccess
+      Tags:
+        - Key: Name
+          Value: !Sub '${EnvironmentName}-notebook-exec'
+
+  NotebookInstance:
+    Type: AWS::SageMaker::NotebookInstance
+    Properties:
+      NotebookInstanceName: !Sub '${EnvironmentName}-nb'
+      InstanceType: !Ref NotebookInstanceType
+      RoleArn: !GetAtt NotebookExecutionRole.Arn
+      SubnetId: !Ref SubnetId
+      SecurityGroupIds:
+        - !Ref SecurityGroupId
+      DirectInternetAccess: !Ref DirectInternetAccess
+      VolumeSizeInGB: !Ref VolumeSizeInGB
+      RootAccess: Disabled
+      Tags:
+        - Key: Name
+          Value: !Sub '${EnvironmentName}-notebook'
+
+Outputs:
+  NotebookInstanceArn:
+    Description: Notebook instance ARN (Ref). Open URL via console or CreatePresignedNotebookInstanceUrl API.
+    Value: !Ref NotebookInstance
+
+  NotebookInstanceName:
+    Description: Notebook instance name (use with SageMaker console / CLI).
+    Value: !GetAtt NotebookInstance.NotebookInstanceName
+
+  NotebookExecutionRoleArn:
+    Description: IAM role ARN used by the notebook.
+    Value: !GetAtt NotebookExecutionRole.Arn
+
+  VpcIdOut:
+    Description: VPC used by the notebook.
+    Value: !Ref VpcId

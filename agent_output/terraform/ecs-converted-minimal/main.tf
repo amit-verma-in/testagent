@@ -16,7 +16,7 @@ provider "aws" {
 module "cloudwatch_log_group" {
   source  = "terraform.mckinsey.cloud/FIRM-TF-MODULES/cloudwatch/aws//modules/log-group"
   version = "~> 1.0"
-  
+
   name              = "/ecs/${var.environment_name}-minimal"
   retention_in_days = 7
 }
@@ -72,8 +72,8 @@ module "ecs_task_definition" {
   network_mode             = "awsvpc"
   cpu                      = "256"
   memory                   = "512"
-  
-  execution_role_arn       = module.ecs_execution_role.arn
+
+  execution_role_arn = module.ecs_execution_role.arn
 
   container_definitions = {
     "web" = {

@@ -19,20 +19,20 @@ module "s3_website" {
   name                          = var.bucket_name
   kms_key_arn                   = var.kms_key_arn
   static_website_config_enabled = true
-  
+
   # Integrates automatically with CloudFront OAC bucket policy
-  cloudfront_distribution_arn   = module.cloudfront.cloudfront_distribution_arn
+  cloudfront_distribution_arn = module.cloudfront.cloudfront_distribution_arn
 }
 
 module "cloudfront" {
   source  = "terraform.mckinsey.cloud/FIRM-TF-MODULES/cloudfront/aws"
   version = "0.2.1"
 
-  name                         = "${var.bucket_name}-cf"
-  product_id                   = var.product_id
-  used_for                     = var.environment
-  default_root_object          = "index.html"
-  
+  name                = "${var.bucket_name}-cf"
+  product_id          = var.product_id
+  used_for            = var.environment
+  default_root_object = "index.html"
+
   create_origin_access_control = true
 
   origin = {

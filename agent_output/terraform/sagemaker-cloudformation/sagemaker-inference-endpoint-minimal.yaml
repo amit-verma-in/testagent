@@ -1,0 +1,103 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Minimal SageMaker real-time inference: IAM execution role, Model, EndpointConfiguration,
+  and Endpoint. Supply a region-correct InferenceImageUri and ModelDataS3Uri for your model.
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: sample-sm-endpoint
+    Description: Prefix for resource names.
+
+  InferenceImageUri:
+    Type: String
+    Description: >
+      Full ECR image URI for inference (SageMaker prebuilt or your image). Must match your
+      AWS region — see https://docs.aws.amazon.com/sagemaker/latest/dg/docker-registry-paths.html
+
+  ModelDataS3Uri:
+    Type: String
+    Description: S3 URI to model artifacts (e.g. s3://bucket/prefix/model.tar.gz).
+
+  InstanceType:
+    Type: String
+    Default: ml.m5.large
+    Description: Instance type for the endpoint variant.
+
+  InitialInstanceCount:
+    Type: Number
+    Default: 1
+    MinValue: 1
+    MaxValue: 4
+    Description: Number of instances for the production variant (keep small for demos).
+
+Resources:
+  ModelExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${EnvironmentName}-sm-model-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: sagemaker.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonSageMakerFullAccess
+      Tags:
+        - Key: Name
+          Value: !Sub '${EnvironmentName}-model-exec'
+
+  SageMakerModel:
+    Type: AWS::SageMaker::Model
+    Properties:
+      ModelName: !Sub '${EnvironmentName}-model'
+      ExecutionRoleArn: !GetAtt ModelExecutionRole.Arn
+      PrimaryContainer:
+        Image: !Ref InferenceImageUri
+        ModelDataUrl: !Ref ModelDataS3Uri
+        Mode: SingleModel
+      Tags:
+        - Key: Name
+          Value: !Sub '${EnvironmentName}-model'
+
+  EndpointConfig:
+    Type: AWS::SageMaker::EndpointConfig
+    Properties:
+      EndpointConfigName: !Sub '${EnvironmentName}-cfg'
+      ProductionVariants:
+        - VariantName: AllTraffic
+          ModelName: !GetAtt SageMakerModel.ModelName
+          InitialInstanceCount: !Ref InitialInstanceCount
+          InstanceType: !Ref InstanceType
+          InitialVariantWeight: 1.0
+      Tags:
+        - Key: Name
+          Value: !Sub '${EnvironmentName}-endpoint-cfg'
+
+  Endpoint:
+    Type: AWS::SageMaker::Endpoint
+    Properties:
+      EndpointName: !Sub '${EnvironmentName}-ep'
+      EndpointConfigName: !GetAtt EndpointConfig.EndpointConfigName
+      Tags:
+        - Key: Name
+          Value: !Sub '${EnvironmentName}-endpoint'
+
+Outputs:
+  ModelName:
+    Description: Registered SageMaker model name.
+    Value: !GetAtt SageMakerModel.ModelName
+
+  EndpointName:
+    Description: SageMaker endpoint name for InvokeEndpoint.
+    Value: !GetAtt Endpoint.EndpointName
+
+  EndpointArn:
+    Description: Endpoint ARN.
+    Value: !GetAtt Endpoint.EndpointArn
+
+  ModelExecutionRoleArn:
+    Description: IAM role used by the model container.
+    Value: !GetAtt ModelExecutionRole.Arn
