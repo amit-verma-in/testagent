@@ -1,7 +1,10 @@
 ---
-name: impro-iac-cfn-to-tf-migration
+name: cfn-to-tf-pattern-catalog-migration
 description: >-
-  Requirements for migrating CloudFormation and AWS Service Catalog infrastructure to Terraform using the Pattern Catalog (Migration Agent, import blocks, PR workflow, CLI in packages/module-commands). Use when working under MSC-X/impro_infra/impro_iac_terraform, on CFN-to-TF migration, Service Catalog, Pattern Catalog MCP, or generated suite Terraform.
+  Migrate CloudFormation to Terraform using a Pattern Catalog-first approach.
+  Always resolve resources via Pattern Catalog MCP/module templates first.
+  Generate raw Terraform resources only when no compatible pattern exists and
+  only with explicit manual-review annotations.
 ---
 
 # Requirements Document
@@ -72,21 +75,38 @@ The system will:
 10. When the KMS provisioned product ID is required but not provided, the Migration Agent shall display a clear error message explaining that it is required to migrate all resources (since KMS is manually created and not in IAC) and exit with a non-zero status code.
 
 ### Requirement 4: Pattern Catalog Integration
-**Objective:** As a SRE, I want the system to fetch matching Terraform patterns from the Pattern Catalog, so that I can use standardized, reusable Terraform patterns for migrated infrastructure.
+**Objective:** Ensure all Terraform output follows Pattern Catalog standards by default.
 
-#### Acceptance Criteria
+
+<!-- #### Acceptance Criteria
 1. When a CloudFormation resource type is identified, the Migration Agent shall fetch matching Terraform patterns using the **Pattern Catalog MCP** (Model Context Protocol); direct REST calls to https://patterncatalog.platform.mckinsey.com/ shall not be used for pattern discovery and retrieval when the MCP is available.
 2. When querying via the Pattern Catalog MCP, the Migration Agent shall use MCP operations to search by resource type, service name, and configuration attributes (e.g., `search_pattern_catalog_modules`, `get_module_details`, `get_module_examples`).
 3. When multiple matching patterns are found, the Migration Agent shall rank patterns by relevance and compatibility score.
 4. When a matching pattern is selected, the Migration Agent shall retrieve the complete Terraform pattern definition (variables, outputs, documentation, examples) via the Pattern Catalog MCP (e.g., `get_module_details`, `get_module_examples`).
 5. If no matching pattern is found via the Pattern Catalog MCP, the Migration Agent shall generate a basic Terraform resource definition based on the CloudFormation template.
 6. If the Pattern Catalog MCP is unavailable or returns an error, the Migration Agent shall display a warning and proceed with basic Terraform generation.
-7. The Migration Agent shall cache Pattern Catalog MCP responses to reduce calls during migration of multiple resources.
+7. The Migration Agent shall cache Pattern Catalog MCP responses to reduce calls during migration of multiple resources. -->
+
+#### Mandatory Rules
+1. For every CFN resource (or Service Catalog product), the agent MUST attempt Pattern Catalog MCP lookup first.
+2. The agent MUST call, in order:
+   - pattern search (by service/resource type + intent)
+   - module details
+   - module examples
+3. If multiple modules match, the agent MUST select the highest compatibility score and document why.
+4. The agent MUST prefer module invocation (`module` blocks) over raw `aws_*` resources.
+5. Direct `aws_*` resource generation is allowed only when:
+   - no compatible pattern exists after explicit lookup, OR
+   - user explicitly asks to bypass Pattern Catalog.
+6. On fallback, the generated code MUST include:
+   - `MANUAL_REVIEW_REQUIRED` comment
+   - reason Pattern Catalog could not be applied
+   - suggested candidate patterns/services for future migration.
 
 ### Requirement 5: Terraform Code Generation
 **Objective:** As a SRE, I want the system to generate Terraform code (.tf files) with proper resource definitions, so that the migrated infrastructure follows Terraform best practices and standards.
 
-#### Acceptance Criteria
+<!-- #### Acceptance Criteria
 1. When generating Terraform code, the Migration Agent shall create .tf files in the specified target IAC repository path (separate from the source IAC repository that contains CloudFormation templates), following the repository's file naming conventions and directory structure.
 2. When mapping CloudFormation resources to Terraform, the Migration Agent shall use appropriate Terraform resource types that match the CloudFormation resource functionality.
 3. When generating Terraform resources, the Migration Agent shall convert CloudFormation parameters to Terraform variables with appropriate types and descriptions.
@@ -95,7 +115,19 @@ The system will:
 6. When generating Terraform code, the Migration Agent shall apply proper formatting and follow Terraform style guidelines (2-space indentation, consistent spacing).
 7. When CloudFormation intrinsic functions are encountered, the Migration Agent shall convert them to equivalent Terraform expressions (e.g., Ref → var, Fn::GetAtt → resource.attribute).
 8. If a CloudFormation resource type has no direct Terraform equivalent, the Migration Agent shall generate a comment indicating manual review is required.
-9. The Migration Agent shall generate separate .tf files for variables, outputs, and resources following Terraform module structure best practices.
+9. The Migration Agent shall generate separate .tf files for variables, outputs, and resources following Terraform module structure best practices. -->
+
+#### Pattern-Catalog Output Standard
+1. Generated Terraform MUST use Pattern Catalog modules when available.
+2. Output structure SHOULD be:
+   - `main.tf` (module blocks)
+   - `variables.tf` (typed vars mapped from CFN params)
+   - `outputs.tf`
+   - `imports.tf` (if importing existing infra)
+   - `<env>.tfvars`
+3. Module versions MUST be pinned (no floating latest).
+4. Module input mapping MUST preserve original CFN semantics and defaults.
+5. Any unmapped CFN field MUST be listed in a migration notes section.
 
 ### Requirement 6: Terraform Import Block Generation
 **Objective:** As a SRE, I want the system to generate Terraform import blocks for existing resources, so that I can manage existing infrastructure state without recreating resources.
@@ -163,3 +195,25 @@ The system will:
 5. When dry-run mode is enabled, the Migration Agent shall perform all discovery and analysis operations without generating any files.
 6. The Migration Agent shall support configuration of the Pattern Catalog MCP (or API endpoint and authentication) when different from the default Cursor/MCP setup.
 7. The Migration Agent shall support configuration of Terraform provider versions and required_providers blocks in generated code.
+
+
+## Pre-Delivery Quality Gate (Required)
+
+Before presenting generated Terraform, the agent MUST provide:
+
+1. Pattern Resolution Report
+   - CFN resource -> selected pattern/module
+   - module source + version
+   - compatibility rationale
+
+2. Exceptions Report
+   - resources not mapped to Pattern Catalog
+   - fallback reason
+   - manual follow-up needed
+
+3. Validation Report
+   - terraform fmt status
+   - terraform validate status
+   - import readiness status (if applicable)
+
+If Pattern Resolution Report is missing, the migration is incomplete.
